@@ -4,7 +4,9 @@ use typikon::book;
 fn test_new_builder() {
     match book::new_builder() {
         Ok(builder) => {
-            println!("{:?}", builder.engine);
+            for view in builder.engine.get_template_names() {
+                println!("{:?}",view);
+            }
             assert!(true);
         }
         Err(_) => assert!(false),

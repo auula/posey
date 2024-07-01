@@ -22,6 +22,8 @@ impl Builder {
     // 渲染整本书
     pub fn render(&mut self) -> io::Result<()> {
         self.create_directory()?;
+        self.get_chapters_hypertext();
+        self.copy_theme_assets()?;
         Ok(())
     }
 
@@ -51,7 +53,9 @@ impl Builder {
                                 sub_chapter_path
                             ));
                         }
-                        Err(err) => logger.error(format_args!("Loading markdown file fail : {:?}", err)),
+                        Err(err) => {
+                            logger.error(format_args!("Loading markdown file fail : {:?}", err))
+                        }
                     }
                 }
 
@@ -76,6 +80,18 @@ impl Builder {
         }
     }
 
+    fn copy_theme_assets(&self) -> std::io::Result<()> {
+        let mut logger = Logger::console_log();
+        let from = format!("theme/{}/assets", self.settings.settings.theme);
+        let to = format!("{}/assets", self.settings.settings.directory.output);
+
+        copy_dir_recursive(Path::new(&from), Path::new(&to))?;
+
+        logger.info(format_args!("Building theme assets directory {:?} successful", &to));
+
+        Ok(())
+    }
+
     // 先把目录创建好
     pub fn create_directory(&mut self) -> io::Result<()> {
         let base_path = Path::new(&self.settings.settings.directory.output);
@@ -83,11 +99,17 @@ impl Builder {
         // 如果文件存在就删除并重建
         if base_path.exists() {
             fs::remove_dir_all(base_path)?;
-            logger.info(format_args!("Clean up output diretory {:?} successful",base_path));
+            logger.info(format_args!(
+                "Clean up output diretory {:?} successful",
+                base_path
+            ));
         }
 
         fs::create_dir(base_path)?;
-        logger.info(format_args!("New create output diretory {:?} successful",base_path));
+        logger.info(format_args!(
+            "New create output diretory {:?} successful",
+            base_path
+        ));
 
         // 创建存放静态 html 文件的二级目录
         self.root.root.chapters.iter().try_for_each(|chapter| {
@@ -108,4 +130,29 @@ pub fn new_builder() -> Result<Builder, Box<dyn std::error::Error>> {
         engine,
         settings,
     })
+}
+
+fn copy_dir_recursive(from: &Path, to: &Path) -> io::Result<()> {
+    // 创建目标目录如果它不存在
+    if !to.exists() {
+        fs::create_dir_all(to)?;
+    }
+
+    // 遍历源目录
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let path = entry.path();
+        let relative_path = path.strip_prefix(from).unwrap();
+        let target_path = to.join(relative_path);
+
+        if path.is_dir() {
+            // 递归地复制子目录
+            copy_dir_recursive(&path, &target_path)?;
+        } else if path.is_file() {
+            // 复制文件
+            fs::copy(&path, &target_path)?;
+        }
+    }
+
+    Ok(())
 }
