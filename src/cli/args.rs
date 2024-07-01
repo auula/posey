@@ -36,6 +36,7 @@ pub fn parse_args() -> (Command, Vec<String>) {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
+        out_banner_string();
         exit(0)
     }
 
